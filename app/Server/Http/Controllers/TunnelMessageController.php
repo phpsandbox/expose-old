@@ -35,7 +35,6 @@ class TunnelMessageController extends Controller
 
     public function handle(Request $request, ConnectionInterface $httpConnection)
     {
-        var_dump("1");
         $subdomain = $this->detectSubdomain($request);
 
         if (is_null($subdomain)) {
@@ -46,8 +45,6 @@ class TunnelMessageController extends Controller
 
             return;
         }
-
-        var_dump("2");
 
         $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
 
@@ -60,7 +57,6 @@ class TunnelMessageController extends Controller
             return;
         }
 
-        var_dump("3");
         $this->sendRequestToClient($request, $controlConnection, $httpConnection);
     }
 
@@ -73,28 +69,20 @@ class TunnelMessageController extends Controller
 
     protected function sendRequestToClient(Request $request, ControlConnection $controlConnection, ConnectionInterface $httpConnection)
     {
-        var_dump("4");
         $request = $this->prepareRequest($request, $controlConnection);
 
         $requestId = $request->header('X-Expose-Request-ID');
 
         $httpConnection = $this->connectionManager->storeHttpConnection($httpConnection, $requestId);
 
-        var_dump("6");
-
         transform($this->passRequestThroughModifiers($request, $httpConnection), function (Request $request) use ($controlConnection, $httpConnection, $requestId) {
-            var_dump("11");
             $controlConnection->once('proxy_ready_'.$requestId, function (ConnectionInterface $proxy) use ($request) {
-                var_dump("12");
                 // Convert the Laravel request into a PSR7 request
                 $psr17Factory = new Psr17Factory();
                 $psrHttpFactory = new PsrHttpFactory($psr17Factory, $psr17Factory, $psr17Factory, $psr17Factory);
                 $request = $psrHttpFactory->createRequest($request);
 
                 $binaryMsg = new Frame(str($request), true, Frame::OP_BINARY);
-
-                var_dump("13");
-
                 $proxy->send($binaryMsg);
             });
 
@@ -104,20 +92,13 @@ class TunnelMessageController extends Controller
 
     protected function passRequestThroughModifiers(Request $request, HttpConnection $httpConnection): ?Request
     {
-        var_dump("7");
         foreach ($this->modifiers as $modifier) {
-            var_dump("8");
-
             $request = app($modifier)->handle($request, $httpConnection);
 
-            var_dump("9");
             if (is_null($request)) {
                 break;
             }
         }
-
-
-        var_dump("10");
 
         return $request;
     }
@@ -138,8 +119,6 @@ class TunnelMessageController extends Controller
         $request->headers->set('Upgrade-Insecure-Requests', 1);
         $request->headers->set('X-Exposed-By', config('app.name').' '.config('app.version'));
         $request->headers->set('X-Original-Host', "{$controlConnection->subdomain}.{$host}");
-
-        var_dump("5");
 
         return $request;
     }
