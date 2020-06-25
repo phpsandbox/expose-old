@@ -28,6 +28,6 @@ class ListUsersController extends AdminController
                 );
 
                 $httpConnection->close();
-            });
+            })->otherwise('var_dump');
     }
 }
