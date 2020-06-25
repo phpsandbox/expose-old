@@ -20,6 +20,7 @@ class ListUsersController extends AdminController
 
     public function handle(Request $request, ConnectionInterface $httpConnection)
     {
+        var_dump("Handlin");
         $this->userRepository
             ->getUsers()
             ->then(function ($users) use ($httpConnection) {
