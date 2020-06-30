@@ -50,7 +50,11 @@ class TunnelMessageController extends Controller
 
         if (is_null($controlConnection)) {
             $httpConnection->send(
-                respond_html($this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]), 404)
+                respond_html(
+                    $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
+                    404,
+                    ['X-PHPSandbox-Message' => 'Not Found']
+                )
             );
             $httpConnection->close();
 
