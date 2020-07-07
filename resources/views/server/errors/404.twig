@@ -12,19 +12,22 @@
 <div class="h-screen bg-white flex items-center justify-center font-sans text-gray-700" style="font-family: 'Jost', sans-serif">
     <div class="font-medium items-center text-center flex flex-col justify-between h-full">
         <div class="flex flex-col justify-center items-center">
-            <h1 style="font-size: 10rem;" class="text-gray-700">Chai!</h1>
+            <h1 style="font-size: 6rem;" class="text-gray-700 mt-64">Chai!</h1>
 
             <p class="mb-6 font-semibold">It looks like the notebook "{{ subdomain }}" hasn't been started or doesn't exists.</p>
 
-            <p class="mb-6 text-sm">Make sure the notebook exists and has been started then try again.</p>
+            <p class="mb-6 text-sm">
+                Make sure the notebook exists and has been started then try again. <br/> If you're seeing this on your notebook page,
+                reload the page to start the notebook. Otherwise, go <a href="https://phpsandbox.io/n/{{ subdomain }}" class="text-indigo-900 hover:underline">here</a> to start it.
+            </p>
 
             <a href="https://phpsandbox.io" class="p-3 bg-indigo-900 hover:bg-indigo-800 text-white rounded-md">
-                Go back to PHPSandbox.
+                Or Go back to PHPSandbox.
             </a>
         </div>
 
         <span class="mb-6">
-            Powered by  <a href="https://sharedwithexpose.com" target="_blank" class="text-indigo-900">
+            Powered by  <a href="https://sharedwithexpose.com" target="_blank" class="text-indigo-900 hover:underline underline">
             Expose
         </a>
         </span>
