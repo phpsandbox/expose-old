@@ -6,6 +6,8 @@ use App\Logger\CliRequestLogger;
 use App\Logger\RequestLogger;
 use Clue\React\Buzz\Browser;
 use Illuminate\Support\ServiceProvider;
+use Laminas\Uri\Uri;
+use Laminas\Uri\UriFactory;
 use React\EventLoop\Factory as LoopFactory;
 use React\EventLoop\LoopInterface;
 
@@ -13,7 +15,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function boot()
     {
-        //
+        UriFactory::registerScheme('chrome-extension', Uri::class);
     }
 
     public function register()
@@ -34,6 +36,14 @@ class AppServiceProvider extends ServiceProvider
     protected function loadConfigurationFile()
     {
         $builtInConfig = config('expose');
+
+        $keyServerVariable = 'EXPOSE_CONFIG_FILE';
+        if (array_key_exists($keyServerVariable, $_SERVER) && is_string($_SERVER[$keyServerVariable]) && file_exists($_SERVER[$keyServerVariable])) {
+            $localConfig = require $_SERVER[$keyServerVariable];
+            config()->set('expose', array_merge($builtInConfig, $localConfig));
+
+            return;
+        }
 
         $localConfigFile = getcwd().DIRECTORY_SEPARATOR.'.expose.php';
 

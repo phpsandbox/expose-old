@@ -12,17 +12,19 @@ class ControlConnection
     /** @var ConnectionInterface */
     public $socket;
     public $host;
+    public $authToken;
     public $subdomain;
     public $client_id;
     public $proxies = [];
     protected $shared_at;
 
-    public function __construct(ConnectionInterface $socket, string $host, string $subdomain, string $clientId)
+    public function __construct(ConnectionInterface $socket, string $host, string $subdomain, string $clientId, string $authToken = '')
     {
         $this->socket = $socket;
         $this->host = $host;
         $this->subdomain = $subdomain;
         $this->client_id = $clientId;
+        $this->authToken = $authToken;
         $this->shared_at = now()->toDateTimeString();
     }
 
@@ -41,6 +43,8 @@ class ControlConnection
         $this->socket->send(json_encode([
             'event' => 'createProxy',
             'data' => [
+                'host' => $this->host,
+                'subdomain' => $this->subdomain,
                 'request_id' => $requestId,
                 'client_id' => $this->client_id,
             ],
@@ -55,8 +59,10 @@ class ControlConnection
     public function toArray()
     {
         return [
+            'type' => 'http',
             'host' => $this->host,
             'client_id' => $this->client_id,
+            'auth_token' => $this->authToken,
             'subdomain' => $this->subdomain,
             'shared_at' => $this->shared_at,
         ];
