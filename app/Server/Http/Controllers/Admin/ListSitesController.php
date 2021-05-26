@@ -4,7 +4,6 @@ namespace App\Server\Http\Controllers\Admin;
 
 use App\Contracts\ConnectionManager;
 use App\Server\Configuration;
-use App\Server\Connections\ControlConnection;
 use Illuminate\Http\Request;
 use Ratchet\ConnectionInterface;
 
@@ -26,17 +25,6 @@ class ListSitesController extends AdminController
         $sites = $this->getView($httpConnection, 'server.sites.index', [
             'scheme' => $this->configuration->port() === 443 ? 'https' : 'http',
             'configuration' => $this->configuration,
-            'sites' => collect($this->connectionManager->getConnections())
-                ->filter(function ($connection) {
-                    return get_class($connection) === ControlConnection::class;
-                })
-                ->map(function ($site, $siteId) {
-                    $site = $site->toArray();
-                    $site['id'] = $siteId;
-
-                    return $site;
-                })
-                ->values(),
         ]);
 
         $httpConnection->send(

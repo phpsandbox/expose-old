@@ -4,30 +4,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Host
+    | Servers
     |--------------------------------------------------------------------------
     |
-    | The expose server to connect to. By default, expose is using the free
-    | sharedwithexpose.com server, offered by Beyond Code. You will need a free
-    | Beyond Code account in order to authenticate with the server.
-    | Feel free to host your own server and change this value.
+    | The available Expose servers that your client can connect to.
+    | When sharing sites or TCP ports, you can specify the server
+    | that should be used using the `--server=` option.
     |
     */
-    'host' => 'sharedwithexpose.com',
+    'servers' => [
+        'default' => [
+            'host' => 'sharedwithexpose.com',
+            'port' => 443,
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Port
+    | Server Endpoint
     |--------------------------------------------------------------------------
     |
-    | The port that expose will try to connect to. If you want to bypass
-    | firewalls and have proper SSL encrypted tunnels, make sure to use
-    | port 443 and use a reverse proxy for Expose.
+    | When you specify a server that does not exist in above static array,
+    | Expose will perform a GET request to this URL and tries to retrieve
+    | a JSON payload that looks like the configurations servers array.
     |
-    | The free default server is already running on port 443.
+    | Expose then tries to load the configuration for the given server
+    | if available.
     |
     */
-    'port' => 443,
+    'server_endpoint' => 'https://beyondco.de/api/expose/servers',
+
+    /*
+    |--------------------------------------------------------------------------
+    | DNS
+    |--------------------------------------------------------------------------
+    |
+    | The DNS server to use when resolving the shared URLs.
+    | When Expose is running from within Docker containers, you should set this to
+    | `true` to fall-back to the system default DNS servers.
+    |
+    */
+    'dns' => '127.0.0.1',
 
     /*
     |--------------------------------------------------------------------------
@@ -54,6 +71,18 @@ return [
     |
     */
     'default_tld' => 'test',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default HTTPS
+    |--------------------------------------------------------------------------
+    |
+    | Whether to use HTTPS as a default when sharing your local sites. Expose
+    | will try to look up the protocol if you are using Laravel Valet
+    | automatically. Otherwise you can specify it here manually.
+    |
+    */
+    'default_https' => false,
 
     /*
     |--------------------------------------------------------------------------
@@ -153,6 +182,19 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | TCP Port Sharing
+        |--------------------------------------------------------------------------
+        |
+        | Control if you want to allow users to share TCP ports with your Expose
+        | server. You can add fine-grained control per authentication token,
+        | but if you want to disable TCP port sharing in general, set this
+        | value to false.
+        |
+        */
+        'allow_tcp_port_sharing' => true,
+
+        /*
+        |--------------------------------------------------------------------------
         | TCP Port Range
         |--------------------------------------------------------------------------
         |
@@ -193,6 +235,17 @@ return [
         |
         */
         'subdomain' => 'expose',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reserved Subdomain
+        |--------------------------------------------------------------------------
+        |
+        | Specify any subdomains that you don't want to be able to register
+        | on your expose server.
+        |
+        */
+        'reserved_subdomains' => [],
 
         /*
         |--------------------------------------------------------------------------
@@ -253,7 +306,11 @@ return [
 
             'custom_subdomain_unauthorized' => 'You are not allowed to specify custom subdomains. Please upgrade to Expose Pro. Assigning a random subdomain instead.',
 
+            'tcp_port_sharing_unauthorized' => 'You are not allowed to share TCP ports. Please upgrade to Expose Pro.',
+
             'no_free_tcp_port_available' => 'There are no free TCP ports available on this server. Please try again later.',
+
+            'tcp_port_sharing_disabled' => 'TCP port sharing is not available on this Expose server.',
         ],
     ],
 ];

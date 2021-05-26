@@ -22,7 +22,7 @@ class ListUsersController extends AdminController
     {
         var_dump("Handlin");
         $this->userRepository
-            ->paginateUsers(20, (int) $request->get('page', 1))
+            ->paginateUsers($request->get('search', ''), 20, (int) $request->get('page', 1))
             ->then(function ($paginated) use ($httpConnection) {
                 $httpConnection->send(
                     respond_html($this->getView($httpConnection, 'server.users.index', ['paginated' => $paginated]))

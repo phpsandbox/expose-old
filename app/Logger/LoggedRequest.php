@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use function GuzzleHttp\Psr7\parse_request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Laminas\Http\Header\GenericHeader;
 use Laminas\Http\Request;
 use Laminas\Http\Response;
 use Namshi\Cuzzle\Formatter\CurlFormatter;
@@ -210,5 +211,18 @@ class LoggedRequest implements \JsonSerializable
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    public function refreshId()
+    {
+        $requestId = (string) Str::uuid();
+
+        $this->getRequest()->getHeaders()->removeHeader(
+            $this->getRequest()->getHeader('x-expose-request-id')
+        );
+
+        $this->getRequest()->getHeaders()->addHeader(new GenericHeader('x-expose-request-id', $requestId));
+
+        $this->id = $requestId;
     }
 }
