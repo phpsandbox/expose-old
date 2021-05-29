@@ -9,8 +9,11 @@ use App\PHPSandbox\Entrypoints\WebSocket\StartNotebook;
 use App\Server\Configuration;
 use App\Server\Connections\ControlConnection;
 use App\Server\Connections\HttpConnection;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use React\EventLoop\LoopInterface;
 use React\Promise\PromiseInterface;
+use Throwable;
 use function GuzzleHttp\Psr7\str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -52,37 +55,56 @@ class TunnelMessageController extends Controller
 
         $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
 
+        $send404 = function () use ($subdomain, $httpConnection) {
+            $httpConnection->send(
+                respond_html(
+                    $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
+                    404,
+                    ['X-PHPSandbox-Message' => 'Not Found']
+                )
+            );
+            $httpConnection->close();
+        };
 
-        $notebookAutostart = config('phpsandbox.notebooks.autostart_enabled') || $subdomain === "laravel";
+        $sendResponse = fn ($controlConnection) => $this->sendRequestToClient($request, $controlConnection, $httpConnection);
+
+        $notebookAutostart = config('phpsandbox.notebooks.autostart_enabled');
 
         if (is_null($controlConnection) && $notebookAutostart) {
             app(GetNotebook::class)
                 ->call($subdomain)
-                ->then(function (?array $notebook) use ($request, $subdomain, $httpConnection): PromiseInterface|null {
+                ->then(function (?array $notebook) use ($sendResponse, $send404, $subdomain) {
                     if (! $notebook) {
-                        $httpConnection->send(
-                            respond_html(
-                                $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
-                                404,
-                                ['X-PHPSandbox-Message' => 'Not Found']
-                            )
-                        );
-                        $httpConnection->close();
+                        return $send404();
+                    }
 
-                        return null;
+                    if (Arr::get($notebook, 'notebook_type.slug') === 'interactive') {
+                        return $send404();
                     }
 
                     return $this
                         ->startNotebook($subdomain)
-                        ->then(function () use ($request, $httpConnection, $subdomain): void {
+                        ->then(function () use ($sendResponse, $send404, $subdomain): void {
                             app(LoopInterface::class)
-                                ->futureTick(function () use ($request, $httpConnection, $subdomain) {
+                                ->addTimer(2,  function () use ($sendResponse, $send404, $subdomain) {
                                     $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
-                                    $this->sendRequestToClient($request, $controlConnection, $httpConnection);
-                                });
-                        })->otherwise('dump');
-                })->otherwise('dump');
 
+                                    if (is_null($controlConnection)) {
+                                        $send404();
+                                        return;
+                                    }
+
+                                    $sendResponse($controlConnection);
+                                });
+                        });
+                })->otherwise(function (Throwable $throwable) use ($subdomain, $httpConnection) {
+                    Log::error($throwable->getMessage(), $throwable->getTrace());
+
+                    $httpConnection->send(
+                        respond_html($this->getView($httpConnection, 'server.errors.500', ['subdomain' => $subdomain]),500)
+                    );
+                    $httpConnection->close();
+                });
             return;
         } elseif (is_null($controlConnection) && ! $notebookAutostart) {
             $httpConnection->send(

@@ -7,11 +7,9 @@ use App\PHPSandbox\Entrypoints\Exceptions\EntrypointException;
 use Closure;
 use Illuminate\Support\Arr;
 use Psr\Http\Message\ResponseInterface;
-use React\EventLoop\LoopInterface;
 use React\Http\Browser;
 use React\Http\Message\ResponseException;
 use React\Promise\PromiseInterface;
-use Throwable;
 
 class Client implements EntrypointClientInterface
 {
@@ -21,7 +19,7 @@ class Client implements EntrypointClientInterface
 
     public function __construct()
     {
-        $this->httpClient = (new Browser(app(LoopInterface::class)))->withBase(config('phpsandbox.ws_entrypoint.base_url'));
+        $this->httpClient = app(Browser::class);
     }
 
     public function call(string $entrypointInterface, string $method, array $args = [], array $headers = []): PromiseInterface
@@ -31,17 +29,16 @@ class Client implements EntrypointClientInterface
             'method' => $method,
             'args' => $args,
         ];
+
         $responsePromise = $this->httpClient->post(
-            self::ENTRYPOINT_URI,
+            config('phpsandbox.ws_entrypoint.base_url') . self::ENTRYPOINT_URI,
             array_merge($this->defaultHeaders(), $headers, $this->basicAuthHeaders()),
             json_encode($payload)
         );
 
         return $responsePromise
             ->then(fn(ResponseInterface $response) => $this->handleResponse($response, $payload))
-            ->otherwise(function (Throwable $throwable) {
-                echo $throwable->getMessage();
-            })->otherwise(Closure::fromCallable([$this, 'handleResponseException']));
+            ->otherwise(Closure::fromCallable([$this, 'handleResponseException']));
     }
 
     private function defaultHeaders(): array

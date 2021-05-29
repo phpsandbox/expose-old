@@ -20,7 +20,7 @@ class CoreClient implements EntrypointClientInterface
 
     public function __construct()
     {
-        $this->httpClient = (new Browser(app(LoopInterface::class)))->withBase(config('phpsandbox.core_entrypoint.base_url'));
+        $this->httpClient = new Browser(app(LoopInterface::class));
     }
 
     public function call(string $entrypointInterface, string $method, array $args = [], array $headers = []): PromiseInterface
@@ -32,12 +32,10 @@ class CoreClient implements EntrypointClientInterface
         ];
 
         $responsePromise = $this->httpClient->post(
-            self::ENTRYPOINT_URI,
+            config('phpsandbox.core_entrypoint.base_url') . self::ENTRYPOINT_URI,
             array_merge($this->defaultHeaders(), $headers, $this->basicAuthHeaders()),
             json_encode($payload)
         );
-
-        dump($payload, config('phpsandbox.core_entrypoint.base_url'));
 
         return $responsePromise
             ->then(fn (ResponseInterface $response) => $this->handleResponse($response, $payload))

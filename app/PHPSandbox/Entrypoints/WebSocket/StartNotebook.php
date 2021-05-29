@@ -3,6 +3,7 @@
 namespace App\PHPSandbox\Entrypoints\WebSocket;
 
 use App\PHPSandbox\Contracts\EntrypointClientInterface;
+use App\PHPSandbox\Entrypoints\Clients\Client;
 use React\Promise\PromiseInterface;
 
 class StartNotebook
@@ -13,7 +14,7 @@ class StartNotebook
 
     public function __construct()
     {
-        self::$client = app(EntrypointClientInterface::class);
+        self::$client = app(Client::class);
     }
 
     public static function call(string $notebookId): PromiseInterface

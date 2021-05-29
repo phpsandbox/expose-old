@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Logger\CliRequestLogger;
 use App\Logger\RequestLogger;
-use App\PHPSandbox\Entrypoints\Clients\Client;
 use Clue\React\Buzz\Browser;
 use Illuminate\Support\ServiceProvider;
 use Laminas\Uri\Uri;
@@ -32,8 +31,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RequestLogger::class, function ($app) {
             return new RequestLogger($app->make(Browser::class), $app->make(CliRequestLogger::class));
         });
-
-        $this->app->singleton(Client::class, Client::class);
     }
 
     protected function loadConfigurationFile()
