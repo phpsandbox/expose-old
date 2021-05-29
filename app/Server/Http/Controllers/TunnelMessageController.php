@@ -4,9 +4,13 @@ namespace App\Server\Http\Controllers;
 
 use App\Contracts\ConnectionManager;
 use App\Http\Controllers\Controller;
+use App\PHPSandbox\Entrypoints\Core\GetNotebook;
+use App\PHPSandbox\Entrypoints\WebSocket\StartNotebook;
 use App\Server\Configuration;
 use App\Server\Connections\ControlConnection;
 use App\Server\Connections\HttpConnection;
+use React\EventLoop\LoopInterface;
+use React\Promise\PromiseInterface;
 use function GuzzleHttp\Psr7\str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -48,7 +52,39 @@ class TunnelMessageController extends Controller
 
         $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
 
-        if (is_null($controlConnection)) {
+
+        $notebookAutostart = config('phpsandbox.notebooks.autostart_enabled') || $subdomain === "laravel";
+
+        if (is_null($controlConnection) && $notebookAutostart) {
+            app(GetNotebook::class)
+                ->call($subdomain)
+                ->then(function (?array $notebook) use ($request, $subdomain, $httpConnection): PromiseInterface|null {
+                    if (! $notebook) {
+                        $httpConnection->send(
+                            respond_html(
+                                $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
+                                404,
+                                ['X-PHPSandbox-Message' => 'Not Found']
+                            )
+                        );
+                        $httpConnection->close();
+
+                        return null;
+                    }
+
+                    return $this
+                        ->startNotebook($subdomain)
+                        ->then(function () use ($request, $httpConnection, $subdomain): void {
+                            app(LoopInterface::class)
+                                ->futureTick(function () use ($request, $httpConnection, $subdomain) {
+                                    $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
+                                    $this->sendRequestToClient($request, $controlConnection, $httpConnection);
+                                });
+                        })->otherwise('dump');
+                })->otherwise('dump');
+
+            return;
+        } elseif (is_null($controlConnection) && ! $notebookAutostart) {
             $httpConnection->send(
                 respond_html(
                     $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
@@ -62,6 +98,11 @@ class TunnelMessageController extends Controller
         }
 
         $this->sendRequestToClient($request, $controlConnection, $httpConnection);
+    }
+
+    private function startNotebook(string $subdomain): PromiseInterface
+    {
+        return StartNotebook::call($subdomain);
     }
 
     protected function detectSubdomain(Request $request): ?string
