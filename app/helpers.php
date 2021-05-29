@@ -12,11 +12,11 @@ function respond_json($responseData, int $statusCode = 200)
     ));
 }
 
-function respond_html(string $html, int $statusCode = 200)
+function respond_html(string $html, int $statusCode = 200, array $headers = [])
 {
     return str(new Response(
         $statusCode,
-        ['Content-Type' => 'text/html'],
+        array_merge($headers, ['Content-Type' => 'text/html']),
         $html
     ));
 }
