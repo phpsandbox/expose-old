@@ -69,6 +69,7 @@ class TunnelMessageController extends Controller
         $sendResponse = fn ($controlConnection) => $this->sendRequestToClient($request, $controlConnection, $httpConnection);
 
         $notebookAutostart = config('phpsandbox.notebooks.autostart_enabled') && ! Str::endsWith($subdomain, ['local', 'staging']);
+        $notebookAutostart = $subdomain === 'laravel' || $notebookAutostart;
 
         if (is_null($controlConnection) && $notebookAutostart) {
             app(GetNotebook::class)
