@@ -2,14 +2,12 @@
 
 namespace Tests\Feature\Server;
 
-use App\Contracts\ConnectionManager;
 use App\Server\Factory;
 use Clue\React\Buzz\Browser;
 use Clue\React\Buzz\Message\ResponseException;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Str;
 use Psr\Http\Message\ResponseInterface;
-use Ratchet\Server\IoConnection;
 use Tests\Feature\TestCase;
 
 class AdminTest extends TestCase
@@ -35,6 +33,8 @@ class AdminTest extends TestCase
     public function tearDown(): void
     {
         $this->serverFactory->getSocket()->close();
+
+        $this->await(\React\Promise\Timer\resolve(0.2, $this->loop));
 
         parent::tearDown();
     }
@@ -140,28 +140,6 @@ class AdminTest extends TestCase
         $body = $response->getBody()->getContents();
 
         $this->assertTrue(Str::contains($body, 'Marcel'));
-    }
-
-    /** @test */
-    public function it_can_list_all_currently_connected_sites()
-    {
-        /** @var ConnectionManager $connectionManager */
-        $connectionManager = app(ConnectionManager::class);
-
-        $connection = \Mockery::mock(IoConnection::class);
-        $connectionManager->storeConnection('some-host.text', 'fixed-subdomain', $connection);
-
-        /** @var Response $response */
-        $response = $this->await($this->browser->get('http://127.0.0.1:8080/sites', [
-            'Host' => 'expose.localhost',
-            'Authorization' => base64_encode('username:secret'),
-            'Content-Type' => 'application/json',
-        ]));
-
-        $body = $response->getBody()->getContents();
-
-        $this->assertTrue(Str::contains($body, 'some-host.text'));
-        $this->assertTrue(Str::contains($body, 'fixed-subdomain'));
     }
 
     protected function startServer()

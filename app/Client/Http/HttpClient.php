@@ -2,11 +2,12 @@
 
 namespace App\Client\Http;
 
+use App\Client\Configuration;
 use App\Client\Http\Modifiers\CheckBasicAuthentication;
 use App\Logger\RequestLogger;
 use Clue\React\Buzz\Browser;
+use GuzzleHttp\Psr7\Message;
 use function GuzzleHttp\Psr7\parse_request;
-use function GuzzleHttp\Psr7\str;
 use Laminas\Http\Request;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -26,19 +27,26 @@ class HttpClient
     /** @var Request */
     protected $request;
 
+    protected $connectionData;
+
     /** @var array */
     protected $modifiers = [
         CheckBasicAuthentication::class,
     ];
+    /** @var Configuration */
+    protected $configuration;
 
-    public function __construct(LoopInterface $loop, RequestLogger $logger)
+    public function __construct(LoopInterface $loop, RequestLogger $logger, Configuration $configuration)
     {
         $this->loop = $loop;
         $this->logger = $logger;
+        $this->configuration = $configuration;
     }
 
-    public function performRequest(string $requestData, WebSocket $proxyConnection = null, string $requestId = null)
+    public function performRequest(string $requestData, WebSocket $proxyConnection = null, $connectionData = null)
     {
+        $this->connectionData = $connectionData;
+
         $this->request = $this->parseRequest($requestData);
 
         $this->logger->logRequest($requestData, $this->request);
@@ -66,7 +74,7 @@ class HttpClient
     protected function createConnector(): Connector
     {
         return new Connector($this->loop, [
-            'dns' => '127.0.0.1',
+            'dns' => config('expose.dns', '127.0.0.1'),
             'tls' => [
                 'verify_peer' => false,
                 'verify_peer_name' => false,
@@ -77,15 +85,19 @@ class HttpClient
     protected function sendRequestToApplication(RequestInterface $request, $proxyConnection = null)
     {
         (new Browser($this->loop, $this->createConnector()))
-            ->withOptions([
-                'followRedirects' => false,
-                'obeySuccessCode' => false,
-                'streaming' => true,
-            ])
-            ->send($request)
+            ->withFollowRedirects(false)
+            ->withRejectErrorResponse(false)
+            ->requestStreaming(
+                $request->getMethod(),
+                $request->getUri(),
+                $request->getHeaders(),
+                $request->getBody()
+            )
             ->then(function (ResponseInterface $response) use ($proxyConnection) {
                 if (! isset($response->buffer)) {
-                    $response->buffer = str($response);
+                    $response = $this->rewriteResponseHeaders($response);
+
+                    $response->buffer = Message::toString($response);
                 }
 
                 $this->sendChunkToServer($response->buffer, $proxyConnection);
@@ -93,7 +105,7 @@ class HttpClient
                 /* @var $body \React\Stream\ReadableStreamInterface */
                 $body = $response->getBody();
 
-                $this->logResponse(str($response));
+                $this->logResponse(Message::toString($response));
 
                 $body->on('data', function ($chunk) use ($proxyConnection, $response) {
                     $response->buffer .= $chunk;
@@ -125,5 +137,26 @@ class HttpClient
     protected function parseRequest($data): Request
     {
         return Request::fromString($data);
+    }
+
+    protected function rewriteResponseHeaders(ResponseInterface $response)
+    {
+        if (! $response->hasHeader('Location')) {
+            return $response;
+        }
+
+        $location = $response->getHeaderLine('Location');
+
+        if (! strstr($location, $this->connectionData->host)) {
+            return $response;
+        }
+
+        $location = str_replace(
+            $this->connectionData->host,
+            $this->configuration->getUrl($this->connectionData->subdomain),
+            $location
+        );
+
+        return $response->withHeader('Location', $location);
     }
 }

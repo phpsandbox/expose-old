@@ -4,17 +4,17 @@ namespace App\Commands;
 
 class ShareCurrentWorkingDirectoryCommand extends ShareCommand
 {
-    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--server-host=} {--server-port=}';
+    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--dns=} {--domain=}';
 
     public function handle()
     {
-        $host = $this->prepareSharedHost(basename(getcwd()).'.'.$this->detectTld());
+        $folderName = $this->detectName();
+        $host = $this->prepareSharedHost($folderName.'.'.$this->detectTld());
 
         $this->input->setArgument('host', $host);
 
         if (! $this->option('subdomain')) {
-            $subdomain = str_replace('.', '-', basename(getcwd()));
-            $this->input->setOption('subdomain', $subdomain);
+            $this->input->setOption('subdomain', str_replace('.', '-', $folderName));
         }
 
         parent::handle();
@@ -33,14 +33,45 @@ class ShareCurrentWorkingDirectoryCommand extends ShareCommand
         return config('expose.default_tld', 'test');
     }
 
-    protected function prepareSharedHost($host): string
+    protected function detectName(): string
+    {
+        $projectPath = getcwd();
+        $valetSitesPath = ($_SERVER['HOME'] ?? $_SERVER['USERPROFILE']).DIRECTORY_SEPARATOR.'.config'.DIRECTORY_SEPARATOR.'valet'.DIRECTORY_SEPARATOR.'Sites';
+
+        if (is_dir($valetSitesPath)) {
+            $site = collect(scandir($valetSitesPath))
+            ->skip(2)
+            ->map(function ($site) use ($valetSitesPath) {
+                return $valetSitesPath.DIRECTORY_SEPARATOR.$site;
+            })->mapWithKeys(function ($site) {
+                return [$site => readlink($site)];
+            })->filter(function ($sourcePath) use ($projectPath) {
+                return $sourcePath === $projectPath;
+            })
+            ->keys()
+            ->first();
+
+            if ($site) {
+                $projectPath = $site;
+            }
+        }
+
+        return basename($projectPath);
+    }
+
+    protected function detectProtocol($host): string
     {
         $certificateFile = ($_SERVER['HOME'] ?? $_SERVER['USERPROFILE']).DIRECTORY_SEPARATOR.'.config'.DIRECTORY_SEPARATOR.'valet'.DIRECTORY_SEPARATOR.'Certificates'.DIRECTORY_SEPARATOR.$host.'.crt';
 
         if (file_exists($certificateFile)) {
-            return 'https://'.$host;
+            return 'https://';
         }
 
-        return $host;
+        return config('expose.default_https', false) ? 'https://' : 'http://';
+    }
+
+    protected function prepareSharedHost($host): string
+    {
+        return $this->detectProtocol($host).$host;
     }
 }

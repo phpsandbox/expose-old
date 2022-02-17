@@ -52,13 +52,31 @@ class ControlConnection
         $this->proxyManager->createProxy($this->clientId, $data);
     }
 
-    public function authenticate(string $sharedHost, string $subdomain)
+    public function createTcpProxy($data)
+    {
+        $this->proxyManager->createTcpProxy($this->clientId, $data);
+    }
+
+    public function authenticate(string $sharedHost, string $subdomain, $serverHost = null)
     {
         $this->socket->send(json_encode([
             'event' => 'authenticate',
             'data' => [
+                'type' => 'http',
                 'host' => $sharedHost,
+                'server_host' => $serverHost,
                 'subdomain' => empty($subdomain) ? null : $subdomain,
+            ],
+        ]));
+    }
+
+    public function authenticateTcp(int $port)
+    {
+        $this->socket->send(json_encode([
+            'event' => 'authenticate',
+            'data' => [
+                'type' => 'tcp',
+                'port' => $port,
             ],
         ]));
     }

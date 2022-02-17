@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use function GuzzleHttp\Psr7\parse_request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Laminas\Http\Header\GenericHeader;
 use Laminas\Http\Request;
 use Laminas\Http\Response;
 use Namshi\Cuzzle\Formatter\CurlFormatter;
@@ -19,11 +20,8 @@ class LoggedRequest implements \JsonSerializable
     /** @var Request */
     protected $parsedRequest;
 
-    /** @var string */
-    protected $rawResponse;
-
-    /** @var Response */
-    protected $parsedResponse;
+    /** @var LoggedResponse */
+    protected $response;
 
     /** @var string */
     protected $id;
@@ -51,6 +49,7 @@ class LoggedRequest implements \JsonSerializable
     /**
      * {@inheritdoc}
      */
+    #[\ReturnTypeWillChange]
     public function jsonSerialize()
     {
         $data = [
@@ -71,22 +70,8 @@ class LoggedRequest implements \JsonSerializable
             ],
         ];
 
-        if ($this->parsedResponse) {
-            $logBody = $this->shouldReturnBody();
-
-            try {
-                $body = $logBody ? $this->parsedResponse->getBody() : '';
-            } catch (\Exception $e) {
-                $body = '';
-            }
-
-            $data['response'] = [
-                'raw' => $logBody ? $this->rawResponse : 'SKIPPED BY CONFIG OR BINARY RESPONSE',
-                'status' => $this->parsedResponse->getStatusCode(),
-                'headers' => $this->parsedResponse->getHeaders()->toArray(),
-                'reason' => $this->parsedResponse->getReasonPhrase(),
-                'body' => $logBody ? $body : 'SKIPPED BY CONFIG OR BINARY RESPONSE',
-            ];
+        if ($this->response) {
+            $data['response'] = $this->response->toArray();
         }
 
         return $data;
@@ -107,96 +92,6 @@ class LoggedRequest implements \JsonSerializable
         return preg_match('~[^\x20-\x7E\t\r\n]~', $string) > 0;
     }
 
-    protected function shouldReturnBody(): bool
-    {
-        if ($this->skipByStatus()) {
-            return false;
-        }
-
-        if ($this->skipByContentType()) {
-            return false;
-        }
-
-        if ($this->skipByExtension()) {
-            return false;
-        }
-
-        if ($this->skipBySize()) {
-            return false;
-        }
-
-        $header = $this->parsedResponse->getHeaders()->get('Content-Type');
-        $contentType = $header ? $header->getMediaType() : '';
-        $patterns = [
-            'application/json',
-            'text/*',
-            '*javascript*',
-        ];
-
-        return Str::is($patterns, $contentType);
-    }
-
-    protected function skipByStatus(): bool
-    {
-        if (empty(config()->get('expose.skip_body_log.status'))) {
-            return false;
-        }
-
-        return Str::is(config()->get('expose.skip_body_log.status'), $this->parsedResponse->getStatusCode());
-    }
-
-    protected function skipByContentType(): bool
-    {
-        if (empty(config()->get('expose.skip_body_log.content_type'))) {
-            return false;
-        }
-
-        $header = $this->parsedResponse->getHeaders()->get('Content-Type');
-        $contentType = $header ? $header->getMediaType() : '';
-
-        return Str::is(config()->get('expose.skip_body_log.content_type'), $contentType);
-    }
-
-    protected function skipByExtension(): bool
-    {
-        if (empty(config()->get('expose.skip_body_log.extension'))) {
-            return false;
-        }
-
-        return Str::is(config()->get('expose.skip_body_log.extension'), $this->parsedRequest->getUri()->getPath());
-    }
-
-    protected function skipBySize(): bool
-    {
-        $configSize = $this->getConfigSize(config()->get('expose.skip_body_log.size', '1MB'));
-        $contentLength = $this->parsedResponse->getHeaders()->get('Content-Length');
-
-        if (! $contentLength) {
-            return false;
-        }
-
-        $contentSize = $contentLength->getFieldValue() ?? 0;
-
-        return $contentSize > $configSize;
-    }
-
-    protected function getConfigSize(string $size): int
-    {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $number = substr($size, 0, -2);
-        $suffix = strtoupper(substr($size, -2));
-
-        // B or no suffix
-        if (is_numeric(substr($suffix, 0, 1))) {
-            return preg_replace('/[^\d]/', '', $size);
-        }
-
-        // if we have an error in the input, default to GB
-        $exponent = array_flip($units)[$suffix] ?? 5;
-
-        return $number * (1024 ** $exponent);
-    }
-
     public function getRequest()
     {
         return $this->parsedRequest;
@@ -204,9 +99,7 @@ class LoggedRequest implements \JsonSerializable
 
     public function setResponse(string $rawResponse, Response $response)
     {
-        $this->parsedResponse = $response;
-
-        $this->rawResponse = $rawResponse;
+        $this->response = new LoggedResponse($rawResponse, $response, $this->getRequest());
 
         if (is_null($this->stopTime)) {
             $this->stopTime = now();
@@ -223,9 +116,9 @@ class LoggedRequest implements \JsonSerializable
         return $this->rawRequest;
     }
 
-    public function getResponse(): ?Response
+    public function getResponse(): ?LoggedResponse
     {
-        return $this->parsedResponse;
+        return $this->response;
     }
 
     public function getPostData()
@@ -308,10 +201,29 @@ class LoggedRequest implements \JsonSerializable
 
     protected function getRequestAsCurl(): string
     {
+        $maxRequestLength = 256000;
+
+        if (strlen($this->rawRequest) > $maxRequestLength) {
+            return '';
+        }
+
         try {
             return (new CurlFormatter())->format(parse_request($this->rawRequest));
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    public function refreshId()
+    {
+        $requestId = (string) Str::uuid();
+
+        $this->getRequest()->getHeaders()->removeHeader(
+            $this->getRequest()->getHeader('x-expose-request-id')
+        );
+
+        $this->getRequest()->getHeaders()->addHeader(new GenericHeader('x-expose-request-id', $requestId));
+
+        $this->id = $requestId;
     }
 }

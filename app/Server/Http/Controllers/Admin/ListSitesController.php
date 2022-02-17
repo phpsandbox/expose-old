@@ -25,12 +25,6 @@ class ListSitesController extends AdminController
         $sites = $this->getView($httpConnection, 'server.sites.index', [
             'scheme' => $this->configuration->port() === 443 ? 'https' : 'http',
             'configuration' => $this->configuration,
-            'sites' => collect($this->connectionManager->getConnections())->map(function ($site, $siteId) {
-                $site = $site->toArray();
-                $site['id'] = $siteId;
-
-                return $site;
-            })->values(),
         ]);
 
         $httpConnection->send(

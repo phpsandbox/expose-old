@@ -4,8 +4,8 @@ namespace App\Client\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Logger\RequestLogger;
+use GuzzleHttp\Psr7\Message;
 use GuzzleHttp\Psr7\Response;
-use function GuzzleHttp\Psr7\str;
 use Illuminate\Http\Request;
 use Ratchet\ConnectionInterface;
 
@@ -28,11 +28,11 @@ class AttachDataToLogController extends Controller
 
             $this->requestLogger->pushLoggedRequest($loggedRequest);
 
-            $httpConnection->send(str(new Response(200)));
+            $httpConnection->send(Message::toString(new Response(200)));
 
             return;
         }
 
-        $httpConnection->send(str(new Response(404)));
+        $httpConnection->send(Message::toString(new Response(404)));
     }
 }
