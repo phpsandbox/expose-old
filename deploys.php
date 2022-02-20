@@ -32,7 +32,7 @@ host('ciroue.com') // Name of the server
 //->stage('production') // Deployment stage (production, staging, etc)
 ->setDeployPath('/var/www/expose');
 
-set('composer_options', '{{composer_action}} --verbose --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-suggest --ignore-platform-reqs');
+set('composer_options', '--verbose --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-suggest');
 
 after('deploy:failed', 'deploy:unlock'); // Unlock after failed deploy
 
