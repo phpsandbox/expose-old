@@ -6,11 +6,13 @@ namespace Deployer;
 require 'vendor/deployer/deployer/recipe/laravel.php';
 require 'contrib/rsync.php';
 
+define("SOURCE_ROOT", dirname(__DIR__, 3));
+
 set('application', 'Expose');
 set('ssh_multiplexing', true); // Speed up deployment
 
 set('rsync_src', function () {
-    return dirname(__DIR__, 3); // If your project isn't in the root, you'll need to change this.
+    return SOURCE_ROOT; // If your project isn't in the root, you'll need to change this.
 });
 
 // Configuring the rsync exclusions.
@@ -46,8 +48,8 @@ desc('Deploy the application');
 // Set up a deployer task to copy secrets to the server.
 // Grabs the dotenv file from the github secret
 task('deploy:secrets', function () {
-    file_put_contents(__DIR__ . '/.env', getenv('DOT_ENV'));
-    upload('.env', get('deploy_path') . '/shared');
+    file_put_contents(SOURCE_ROOT . '/.env', getenv('DOT_ENV'));
+    upload(SOURCE_ROOT . '/.env', get('deploy_path') . '/shared');
 });
 
 task('deploy', [
