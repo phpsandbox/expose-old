@@ -15,6 +15,14 @@ set('rsync_src', function () {
     return SOURCE_ROOT; // If your project isn't in the root, you'll need to change this.
 });
 
+add('shared_dirs', [
+    'config/.expose',
+]);
+
+add('writable_dirs', [
+    'config/.expose',
+]);
+
 // Configuring the rsync exclusions.
 // You'll want to exclude anything that you don't want on the production server.
 add('rsync', [
