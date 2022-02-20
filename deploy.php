@@ -4,7 +4,7 @@ namespace Deployer;
 
 // Include the Laravel & rsync recipes
 require 'recipe/laravel.php';
-//require 'contrib/rsync.php';
+require 'recipe/rsync.php';
 
 set('application', 'dep-demo');
 set('ssh_multiplexing', true); // Speed up deployment
@@ -73,5 +73,5 @@ $completeRelease = function (): void {
     });
 };
 
-task('deploy:done:production', $completeRelease);
+task('deploy:done:production', $completeRelease)->onStage("production");
 after('deploy', 'deploy:done:production');
