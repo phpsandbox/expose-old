@@ -60,7 +60,7 @@ return [
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\Translation\TranslationServiceProvider::class,
 
-        // Custom
+        // Custom Service Providers
         ComponentServiceProvider::class
     ],
 
