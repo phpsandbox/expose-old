@@ -42,4 +42,4 @@ jobs:
       - name: Deploy to Prod
         env:
           DOT_ENV: ${{ secrets.DOT_ENV }}
-        run: ./vendor/bin/dep deploy production --verbose
+        run: ./vendor/bin/dep deploy production
