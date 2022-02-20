@@ -1,5 +1,7 @@
 <?php
 
+use App\Providers\ComponentServiceProvider;
+
 return [
 
     /*
@@ -57,6 +59,9 @@ return [
         App\Providers\AppServiceProvider::class,
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\Translation\TranslationServiceProvider::class,
+
+        // Custom
+        ComponentServiceProvider::class
     ],
 
     'locale' => 'en',

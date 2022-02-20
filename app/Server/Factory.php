@@ -270,8 +270,6 @@ class Factory
 
             $options = ['worker_command' => Phar::running(false) ? Phar::running(false).' --sqlite-worker' : null];
 
-            var_dump(config('expose.admin.database', ':memory:'));
-
             return $factory->openLazy(
                 config('expose.admin.database', ':memory:'),
                 null,

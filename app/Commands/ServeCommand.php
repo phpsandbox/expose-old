@@ -17,8 +17,6 @@ class ServeCommand extends Command
         /** @var LoopInterface $loop */
         $loop = app(LoopInterface::class);
 
-        $this->setErrorReporting();
-
         $loop->futureTick(function () {
             $this->info('Expose server running on port '.$this->option('port').'.');
         });
@@ -37,22 +35,5 @@ class ServeCommand extends Command
             ->validateAuthTokens($validateAuthTokens)
             ->createServer()
             ->run();
-    }
-
-    private function setErrorReporting(): void
-    {
-        /**
-         * This is being applied specifically as a workaround of
-         * https://github.com/reactphp/promise/blob/0845d291435b862f9a22bb5971ba18f50a00da09/src/functions.php#L345
-         * which throws E_DEPRECATED ErrorException since PHP8 as documented here:
-         * https://www.php.net/manual/en/migration80.deprecated.php#migration80.deprecated.reflection
-         *
-         * Also see https://www.php.net/manual/en/migration80.incompatible.php
-         *
-         * The solution disables reporting E_DEPRECATED.
-         *
-         * We will keep looking around for a less dangerous solution.
-         */
-        error_reporting(error_reporting() & ~E_DEPRECATED);
     }
 }
