@@ -41,4 +41,4 @@ jobs:
       - name: Deploy to Prod
         env:
           DOT_ENV: ${{ secrets.DOT_ENV }}
-        run: ./vendor/bin/dep deploy ciroue.com --file=components/phpsandbox/deploy.php --verbose -o release_name=3
+        run: ./vendor/bin/dep deploy ciroue.com --file=components/phpsandbox/deploy.php --verbose
