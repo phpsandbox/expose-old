@@ -18,28 +18,6 @@ use Ratchet\ConnectionInterface;
 
 class TunnelMessageController extends \App\Server\Http\Controllers\TunnelMessageController
 {
-    /** @var ConnectionManager */
-    protected $connectionManager;
-
-    /** @var Configuration */
-    protected $configuration;
-
-    protected $keepConnectionOpen = true;
-
-    protected $modifiers = [];
-
-    /** @var StatisticsCollector */
-    protected $statisticsCollector;
-
-    public function __construct(ConnectionManager $connectionManager, StatisticsCollector $statisticsCollector, Configuration $configuration)
-    {
-        dump("Foooo Bar");
-        parent::__construct($connectionManager, $statisticsCollector, $configuration);
-        $this->connectionManager = $connectionManager;
-        $this->configuration = $configuration;
-        $this->statisticsCollector = $statisticsCollector;
-    }
-
     public function handle(Request $request, ConnectionInterface $httpConnection)
     {
         $subdomain = $this->detectSubdomain($request);
