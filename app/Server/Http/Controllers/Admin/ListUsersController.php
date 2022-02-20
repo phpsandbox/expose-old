@@ -20,6 +20,7 @@ class ListUsersController extends AdminController
 
     public function handle(Request $request, ConnectionInterface $httpConnection)
     {
+        var_dump("Handlin");
         $this->userRepository
             ->paginateUsers($request->get('search', ''), 20, (int) $request->get('page', 1))
             ->then(function ($paginated) use ($httpConnection) {
@@ -28,6 +29,6 @@ class ListUsersController extends AdminController
                 );
 
                 $httpConnection->close();
-            });
+            })->otherwise('var_dump');
     }
 }

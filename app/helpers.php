@@ -3,11 +3,11 @@
 use GuzzleHttp\Psr7\Message;
 use GuzzleHttp\Psr7\Response;
 
-function respond_json($responseData, int $statusCode = 200)
+function respond_json($responseData, int $statusCode = 200, array $headers = [])
 {
     return Message::toString(new Response(
         $statusCode,
-        ['Content-Type' => 'application/json'],
+        array_merge($headers, ['Content-Type' => 'application/json']),
         json_encode($responseData, JSON_INVALID_UTF8_IGNORE)
     ));
 }
