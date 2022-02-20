@@ -62,7 +62,7 @@ task('deploy', [
     'deploy:writable',
     'deploy:symlink',
     'deploy:unlock',
-    'cleanup',
+    'deploy:cleanup',
 ]);
 
 $completeRelease = function (): void {
