@@ -4,6 +4,7 @@ namespace App\Server\Http\Controllers\Admin;
 
 use App\Contracts\SubdomainRepository;
 use App\Contracts\UserRepository;
+use App\Server\Configuration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Ratchet\ConnectionInterface;
@@ -18,10 +19,14 @@ class StoreSubdomainController extends AdminController
     /** @var UserRepository */
     protected $userRepository;
 
-    public function __construct(UserRepository $userRepository, SubdomainRepository $subdomainRepository)
+    /** @var Configuration */
+    protected $configuration;
+
+    public function __construct(UserRepository $userRepository, SubdomainRepository $subdomainRepository, Configuration $configuration)
     {
         $this->userRepository = $userRepository;
         $this->subdomainRepository = $subdomainRepository;
+        $this->configuration = $configuration;
     }
 
     public function handle(Request $request, ConnectionInterface $httpConnection)
@@ -39,7 +44,8 @@ class StoreSubdomainController extends AdminController
             return;
         }
 
-        $this->userRepository->getUserByToken($request->get('auth_token', ''))
+        $this->userRepository
+            ->getUserByToken($request->get('auth_token', ''))
             ->then(function ($user) use ($httpConnection, $request) {
                 if (is_null($user)) {
                     $httpConnection->send(respond_json(['error' => 'The user does not exist'], 404));
@@ -55,20 +61,22 @@ class StoreSubdomainController extends AdminController
                     return;
                 }
 
+                if (in_array($request->get('subdomain'), config('expose.admin.reserved_subdomains', []))) {
+                    $httpConnection->send(respond_json(['error' => 'The subdomain is already taken.'], 422));
+                    $httpConnection->close();
+
+                    return;
+                }
+
                 $insertData = [
                     'user_id' => $user['id'],
                     'subdomain' => $request->get('subdomain'),
+                    'domain' => $request->get('domain', $this->configuration->hostname()),
                 ];
 
                 $this->subdomainRepository
                     ->storeSubdomain($insertData)
                     ->then(function ($subdomain) use ($httpConnection) {
-                        if (is_null($subdomain)) {
-                            $httpConnection->send(respond_json(['error' => 'The subdomain is already taken.'], 422));
-                            $httpConnection->close();
-
-                            return;
-                        }
                         $httpConnection->send(respond_json(['subdomain' => $subdomain], 200));
                         $httpConnection->close();
                     });

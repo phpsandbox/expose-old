@@ -31,6 +31,10 @@ class Client
     /** @var int */
     protected $timeConnected = 0;
 
+    /** @var bool */
+    protected $shouldExit = true;
+
+    public static $user = [];
     public static $subdomains = [];
 
     public function __construct(LoopInterface $loop, Configuration $configuration, CliRequestLogger $logger)
@@ -40,12 +44,17 @@ class Client
         $this->logger = $logger;
     }
 
-    public function share(string $sharedUrl, array $subdomains = [])
+    public function shouldExit($shouldExit = true)
+    {
+        $this->shouldExit = $shouldExit;
+    }
+
+    public function share(string $sharedUrl, array $subdomains = [], $serverHost = null)
     {
         $sharedUrl = $this->prepareSharedUrl($sharedUrl);
 
         foreach ($subdomains as $subdomain) {
-            $this->connectToServer($sharedUrl, $subdomain, $this->configuration->auth());
+            $this->connectToServer($sharedUrl, $subdomain, $serverHost, $this->configuration->auth());
         }
     }
 
@@ -72,28 +81,30 @@ class Client
         return $url;
     }
 
-    public function connectToServer(string $sharedUrl, $subdomain, $authToken = ''): PromiseInterface
+    public function connectToServer(string $sharedUrl, $subdomain, $serverHost = null, $authToken = ''): PromiseInterface
     {
         $deferred = new Deferred();
         $promise = $deferred->promise();
 
+        $exposeVersion = config('app.version');
+
         $wsProtocol = $this->configuration->port() === 443 ? 'wss' : 'ws';
 
-        connect($wsProtocol."://{$this->configuration->host()}:{$this->configuration->port()}/expose/control?authToken={$authToken}", [], [
+        connect($wsProtocol."://{$this->configuration->host()}:{$this->configuration->port()}/expose/control?authToken={$authToken}&version={$exposeVersion}", [], [
             'X-Expose-Control' => 'enabled',
         ], $this->loop)
-            ->then(function (WebSocket $clientConnection) use ($sharedUrl, $subdomain, $deferred, $authToken) {
+            ->then(function (WebSocket $clientConnection) use ($sharedUrl, $subdomain, $serverHost, $deferred, $authToken) {
                 $this->connectionRetries = 0;
 
                 $connection = ControlConnection::create($clientConnection);
 
-                $connection->authenticate($sharedUrl, $subdomain);
+                $connection->authenticate($sharedUrl, $subdomain, $serverHost);
 
-                $clientConnection->on('close', function () use ($sharedUrl, $subdomain, $authToken) {
+                $clientConnection->on('close', function () use ($sharedUrl, $subdomain, $serverHost, $authToken) {
                     $this->logger->error('Connection to server closed.');
 
-                    $this->retryConnectionOrExit(function () use ($sharedUrl, $subdomain, $authToken) {
-                        $this->connectToServer($sharedUrl, $subdomain, $authToken);
+                    $this->retryConnectionOrExit(function () use ($sharedUrl, $subdomain, $serverHost, $authToken) {
+                        $this->connectToServer($sharedUrl, $subdomain, $serverHost, $authToken);
                     });
                 });
 
@@ -107,19 +118,17 @@ class Client
 
                 $connection->on('authenticated', function ($data) use ($deferred, $sharedUrl) {
                     $httpProtocol = $this->configuration->port() === 443 ? 'https' : 'http';
-                    $host = $this->configuration->host();
-
-                    if ($httpProtocol !== 'https') {
-                        $host .= ":{$this->configuration->port()}";
-                    }
+                    $host = $data->server_host ?? $this->configuration->host();
 
                     $this->logger->info($data->message);
                     $this->logger->info("Local-URL:\t\t{$sharedUrl}");
                     $this->logger->info("Dashboard-URL:\t\thttp://127.0.0.1:".config()->get('expose.dashboard_port'));
-                    $this->logger->info("Expose-URL:\t\t{$httpProtocol}://{$data->subdomain}.{$host}");
+                    $this->logger->info("Expose-URL:\t\thttp://{$data->subdomain}.{$host}:{$this->configuration->port()}");
+                    $this->logger->info("Expose-URL:\t\thttps://{$data->subdomain}.{$host}");
                     $this->logger->line('');
 
                     static::$subdomains[] = "{$httpProtocol}://{$data->subdomain}.{$host}";
+                    static::$user = $data->user ?? ['can_specify_subdomains' => 0];
 
                     $deferred->resolve($data);
                 });
@@ -146,8 +155,9 @@ class Client
         $promise = $deferred->promise();
 
         $wsProtocol = $this->configuration->port() === 443 ? 'wss' : 'ws';
+        $exposeVersion = config('app.version');
 
-        connect($wsProtocol."://{$this->configuration->host()}:{$this->configuration->port()}/expose/control?authToken={$authToken}", [], [
+        connect($wsProtocol."://{$this->configuration->host()}:{$this->configuration->port()}/expose/control?authToken={$authToken}&version={$exposeVersion}", [], [
             'X-Expose-Control' => 'enabled',
         ], $this->loop)
             ->then(function (WebSocket $clientConnection) use ($port, $deferred, $authToken) {
@@ -201,6 +211,10 @@ class Client
             $this->logger->info($data->message);
         });
 
+        $connection->on('warning', function ($data) {
+            $this->logger->warn($data->message);
+        });
+
         $connection->on('error', function ($data) {
             $this->logger->error($data->message);
         });
@@ -231,7 +245,9 @@ class Client
         $deferred->reject();
 
         $this->loop->futureTick(function () {
-            exit(1);
+            if ($this->shouldExit) {
+                exit(1);
+            }
         });
     }
 

@@ -1,7 +1,7 @@
 {
     "name": "beyondcode/expose",
     "type": "project",
-    "description": "Expose",
+    "description": "Create public URLs for local sites through any firewall and VPN.",
     "keywords": [
         "expose",
         "tunnel",
@@ -16,16 +16,19 @@
         }
     ],
     "require": {
-        "php": "^7.3.0 || ^8.0",
-        "ext-json": "*"
+        "php": "^8.0",
+        "ext-json": "*",
+        "padraic/phar-updater": "^1.0.6",
+        "phpsandbox/expose": "*"
     },
     "require-dev": {
         "cboden/ratchet": "^0.4.3",
         "clue/block-react": "^1.4",
-        "clue/buzz-react": "^2.7",
-        "clue/reactphp-sqlite": "dev-modular-worker-for-phar-support",
+        "clue/buzz-react": "^2.9",
+        "clue/reactphp-sqlite": "^1.4",
         "guzzlehttp/guzzle": "^7.2",
         "guzzlehttp/psr7": "^1.7",
+        "illuminate/log": "^8.0",
         "illuminate/http": "5.8.* || ^6.0 || ^7.0 || ^8.0",
         "illuminate/pipeline": "^7.6 || ^8.0",
         "illuminate/validation": "^7.7 || ^8.0",
@@ -64,12 +67,6 @@
             "Tests\\": "tests/"
         }
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/seankndy/reactphp-sqlite"
-        }
-    ],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "bin": [
@@ -79,5 +76,14 @@
         "post-create-project-cmd": [
             "@php application app:rename"
         ]
-    }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "components/phpsandbox",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
 }

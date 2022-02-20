@@ -26,7 +26,7 @@ return [
     |
     */
 
-    'version' => '2.0.0-beta',
+    'version' => '2.1.0',
 
     /*
     |--------------------------------------------------------------------------
@@ -58,5 +58,7 @@ return [
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\Translation\TranslationServiceProvider::class,
     ],
+
+    'locale' => 'en',
 
 ];

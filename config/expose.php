@@ -13,7 +13,7 @@ return [
     |
     */
     'servers' => [
-        'default' => [
+        'main' => [
             'host' => 'sharedwithexpose.com',
             'port' => 443,
         ],
@@ -32,7 +32,18 @@ return [
     | if available.
     |
     */
-    'server_endpoint' => 'https://beyondco.de/api/expose/servers',
+    'server_endpoint' => 'https://expose.dev/api/servers',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Server
+    |--------------------------------------------------------------------------
+    |
+    | The default server from the servers array,
+    | or the servers endpoint above.
+    |
+    */
+    'default_server' => 'main',
 
     /*
     |--------------------------------------------------------------------------
@@ -59,6 +70,20 @@ return [
     |
     */
     'auth_token' => '',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Domain
+    |--------------------------------------------------------------------------
+    |
+    | The custom domain to use when sharing sites with Expose.
+    | You can register your own custom domain using Expose Pro
+    | Learn more at: https://expose.dev/get-pro
+    |
+    | > expose default-domain YOUR-CUSTOM-WHITELABEL-DOMAIN
+    |
+    */
+    'default_domain' => null,
 
     /*
     |--------------------------------------------------------------------------
@@ -226,6 +251,21 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | Maximum number of open connections
+        |--------------------------------------------------------------------------
+        |
+        | You can limit the amount of connections that one client/user can have
+        | open. A maximum connection count of 0 means that clients can open
+        | as many connections as they want.
+        |
+        | When creating users with the API/admin interface, you can
+        | override this setting per user.
+        |
+        */
+        'maximum_open_connections_per_user' => 0,
+
+        /*
+        |--------------------------------------------------------------------------
         | Subdomain
         |--------------------------------------------------------------------------
         |
@@ -261,6 +301,25 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | Connection Callback
+        |--------------------------------------------------------------------------
+        |
+        | This is a callback method that will be called when a new connection is
+        | established.
+        | The \App\Client\Callbacks\WebHookConnectionCallback::class is included out of the box.
+        |
+        */
+        'connection_callback' => null,
+
+        'connection_callbacks' => [
+            'webhook' => [
+                'url' => null,
+                'secret' => null,
+            ],
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
         | Users
         |--------------------------------------------------------------------------
         |
@@ -287,6 +346,8 @@ return [
 
         'subdomain_repository' => \App\Server\SubdomainRepository\DatabaseSubdomainRepository::class,
 
+        'logger_repository' => \App\Server\LoggerRepository\NullLogger::class,
+
         /*
         |--------------------------------------------------------------------------
         | Messages
@@ -298,19 +359,35 @@ return [
         |
         */
         'messages' => [
+            'resolve_connection_message' => function ($connectionInfo, $user) {
+                return config('expose.admin.messages.message_of_the_day');
+            },
+
             'message_of_the_day' => 'Thank you for using expose.',
 
             'invalid_auth_token' => 'Authentication failed. Please check your authentication token and try again.',
 
             'subdomain_taken' => 'The chosen subdomain :subdomain is already taken. Please choose a different subdomain.',
 
+            'subdomain_reserved' => 'The chosen subdomain :subdomain is not available. Please choose a different subdomain.',
+
             'custom_subdomain_unauthorized' => 'You are not allowed to specify custom subdomains. Please upgrade to Expose Pro. Assigning a random subdomain instead.',
+
+            'custom_domain_unauthorized' => 'You are not allowed to use this custom domain.',
 
             'tcp_port_sharing_unauthorized' => 'You are not allowed to share TCP ports. Please upgrade to Expose Pro.',
 
             'no_free_tcp_port_available' => 'There are no free TCP ports available on this server. Please try again later.',
 
             'tcp_port_sharing_disabled' => 'TCP port sharing is not available on this Expose server.',
+        ],
+
+        'statistics' => [
+            'enable_statistics' => true,
+
+            'interval_in_seconds' => 3600,
+
+            'repository' => \App\Server\StatisticsRepository\DatabaseStatisticsRepository::class,
         ],
     ],
 ];

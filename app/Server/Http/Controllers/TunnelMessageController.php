@@ -3,10 +3,18 @@
 namespace App\Server\Http\Controllers;
 
 use App\Contracts\ConnectionManager;
+use App\Contracts\StatisticsCollector;
 use App\Http\Controllers\Controller;
+use App\PHPSandbox\Entrypoints\Core\GetNotebook;
+use App\PHPSandbox\Entrypoints\WebSocket\StartNotebook;
 use App\Server\Configuration;
 use App\Server\Connections\ControlConnection;
 use App\Server\Connections\HttpConnection;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
+use React\EventLoop\LoopInterface;
+use React\Promise\PromiseInterface;
+use Throwable;
 use function GuzzleHttp\Psr7\str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -27,15 +35,20 @@ class TunnelMessageController extends Controller
 
     protected $modifiers = [];
 
-    public function __construct(ConnectionManager $connectionManager, Configuration $configuration)
+    /** @var StatisticsCollector */
+    protected $statisticsCollector;
+
+    public function __construct(ConnectionManager $connectionManager, StatisticsCollector $statisticsCollector, Configuration $configuration)
     {
         $this->connectionManager = $connectionManager;
         $this->configuration = $configuration;
+        $this->statisticsCollector = $statisticsCollector;
     }
 
     public function handle(Request $request, ConnectionInterface $httpConnection)
     {
         $subdomain = $this->detectSubdomain($request);
+        $serverHost = $this->detectServerHost($request);
 
         if (is_null($subdomain)) {
             $httpConnection->send(
@@ -46,9 +59,61 @@ class TunnelMessageController extends Controller
             return;
         }
 
-        $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
+        $controlConnection = $this->connectionManager->findControlConnectionForSubdomainAndServerHost($subdomain, $serverHost);
 
-        if (is_null($controlConnection)) {
+        $send404 = function () use ($subdomain, $httpConnection) {
+            $httpConnection->send(
+                respond_html(
+                    $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
+                    404,
+                    ['X-PHPSandbox-Message' => 'Not Found']
+                )
+            );
+            $httpConnection->close();
+        };
+
+        $sendResponse = fn ($controlConnection) => $this->sendRequestToClient($request, $controlConnection, $httpConnection);
+
+        $notebookAutostart = config('phpsandbox.notebooks.autostart_enabled') && ! Str::endsWith($subdomain, ['local', 'staging']);
+        $notebookAutostart = $subdomain === 'laravel' || $notebookAutostart;
+
+        if (is_null($controlConnection) && $notebookAutostart) {
+            app(GetNotebook::class)
+                ->call($subdomain)
+                ->then(function (?array $notebook) use ($sendResponse, $send404, $subdomain) {
+                    if (! $notebook) {
+                        return $send404();
+                    }
+
+                    if (Arr::get($notebook, 'notebook_type.slug') === 'interactive') {
+                        return $send404();
+                    }
+
+                    return $this
+                        ->startNotebook($subdomain)
+                        ->then(function () use ($sendResponse, $send404, $subdomain): void {
+                            app(LoopInterface::class)
+                                ->addTimer(2,  function () use ($sendResponse, $send404, $subdomain) {
+                                    $controlConnection = $this->connectionManager->findControlConnectionForSubdomain($subdomain);
+
+                                    if (is_null($controlConnection)) {
+                                        $send404();
+                                        return;
+                                    }
+
+                                    $sendResponse($controlConnection);
+                                });
+                        });
+                })->otherwise(function (Throwable $throwable) use ($subdomain, $httpConnection) {
+                    Log::error($throwable->getMessage(), $throwable->getTrace());
+
+                    $httpConnection->send(
+                        respond_html($this->getView($httpConnection, 'server.errors.500', ['subdomain' => $subdomain]),500)
+                    );
+                    $httpConnection->close();
+                });
+            return;
+        } elseif (is_null($controlConnection) && ! $notebookAutostart) {
             $httpConnection->send(
                 respond_html(
                     $this->getView($httpConnection, 'server.errors.404', ['subdomain' => $subdomain]),
@@ -61,14 +126,28 @@ class TunnelMessageController extends Controller
             return;
         }
 
+        $this->statisticsCollector->incomingRequest();
+
         $this->sendRequestToClient($request, $controlConnection, $httpConnection);
+    }
+
+    private function startNotebook(string $subdomain): PromiseInterface
+    {
+        return StartNotebook::call($subdomain);
     }
 
     protected function detectSubdomain(Request $request): ?string
     {
-        $subdomain = Str::before($request->getHost(), '.'.$this->configuration->hostname());
+        $serverHost = $this->detectServerHost($request);
 
-        return $subdomain === $request->getHost() ? null : $subdomain;
+        $subdomain = Str::before($request->header('Host'), '.'.$serverHost);
+
+        return $subdomain === $request->header('Host') ? null : $subdomain;
+    }
+
+    protected function detectServerHost(Request $request): ?string
+    {
+        return Str::before(Str::after($request->header('Host'), '.'), ':');
     }
 
     protected function sendRequestToClient(Request $request, ControlConnection $controlConnection, ConnectionInterface $httpConnection)
@@ -111,14 +190,13 @@ class TunnelMessageController extends Controller
     {
         $request::setTrustedProxies([$controlConnection->socket->remoteAddress, '127.0.0.1'], Request::HEADER_X_FORWARDED_ALL);
 
-        $host = $this->configuration->hostname();
+        $host = $controlConnection->serverHost;
 
         if (! $request->isSecure()) {
             $host .= ":{$this->configuration->port()}";
         }
 
-//        $request->headers->set('Host', $controlConnection->host);
-        $request->headers->set('Host', "{$controlConnection->subdomain}.{$host}");
+        $request->headers->set('Host', $controlConnection->host);
         $request->headers->set('X-Forwarded-Proto', $request->isSecure() ? 'https' : 'http');
         $request->headers->set('X-Expose-Request-ID', uniqid());
         $request->headers->set('Upgrade-Insecure-Requests', 1);

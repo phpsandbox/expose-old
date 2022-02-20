@@ -114,6 +114,19 @@ class DatabaseUserRepository implements UserRepository
         return $deferred->promise();
     }
 
+    public function updateLastSharedAt($id): PromiseInterface
+    {
+        $deferred = new Deferred();
+
+        $this->database
+            ->query("UPDATE users SET last_shared_at = date('now') WHERE id = :id", ['id' => $id])
+            ->then(function (Result $result) use ($deferred) {
+                $deferred->resolve();
+            });
+
+        return $deferred->promise();
+    }
+
     public function getUserByToken(string $authToken): PromiseInterface
     {
         $deferred = new Deferred();
@@ -121,7 +134,13 @@ class DatabaseUserRepository implements UserRepository
         $this->database
             ->query('SELECT * FROM users WHERE auth_token = :token', ['token' => $authToken])
             ->then(function (Result $result) use ($deferred) {
-                $deferred->resolve($result->rows[0] ?? null);
+                $user = $result->rows[0] ?? null;
+
+                if (! is_null($user)) {
+                    $user = $this->getUserDetails($user);
+                }
+
+                $deferred->resolve($user);
             });
 
         return $deferred->promise();
@@ -131,15 +150,38 @@ class DatabaseUserRepository implements UserRepository
     {
         $deferred = new Deferred();
 
-        $this->database->query("
-            INSERT INTO users (name, auth_token, can_specify_subdomains, can_share_tcp_ports, created_at)
-            VALUES (:name, :auth_token, :can_specify_subdomains, :can_share_tcp_ports, DATETIME('now'))
+        $this->getUserByToken($data['auth_token'])
+            ->then(function ($existingUser) use ($data, $deferred) {
+                if (is_null($existingUser)) {
+                    $this->database->query("
+            INSERT INTO users (name, auth_token, can_specify_subdomains, can_specify_domains, can_share_tcp_ports, max_connections, created_at)
+            VALUES (:name, :auth_token, :can_specify_subdomains, :can_specify_domains, :can_share_tcp_ports, :max_connections, DATETIME('now'))
         ", $data)
-            ->then(function (Result $result) use ($deferred) {
-                $this->database->query('SELECT * FROM users WHERE id = :id', ['id' => $result->insertId])
-                    ->then(function (Result $result) use ($deferred) {
-                        $deferred->resolve($result->rows[0]);
-                    });
+                        ->then(function (Result $result) use ($deferred) {
+                            $this->database->query('SELECT * FROM users WHERE id = :id', ['id' => $result->insertId])
+                                ->then(function (Result $result) use ($deferred) {
+                                    $deferred->resolve($result->rows[0]);
+                                });
+                        });
+                } else {
+                    $this->database->query('
+            UPDATE users
+            SET
+                name = :name,
+                can_specify_subdomains = :can_specify_subdomains,
+                can_specify_domains = :can_specify_domains,
+                can_share_tcp_ports = :can_share_tcp_ports,
+                max_connections = :max_connections
+            WHERE
+                auth_token = :auth_token
+        ', $data)
+                        ->then(function (Result $result) use ($existingUser, $deferred) {
+                            $this->database->query('SELECT * FROM users WHERE id = :id', ['id' => $existingUser['id']])
+                                ->then(function (Result $result) use ($deferred) {
+                                    $deferred->resolve($result->rows[0]);
+                                });
+                        });
+                }
             });
 
         return $deferred->promise();
@@ -149,7 +191,7 @@ class DatabaseUserRepository implements UserRepository
     {
         $deferred = new Deferred();
 
-        $this->database->query('DELETE FROM users WHERE id = :id', ['id' => $id])
+        $this->database->query('DELETE FROM users WHERE id = :id OR auth_token = :id', ['id' => $id])
             ->then(function (Result $result) use ($deferred) {
                 $deferred->resolve($result);
             });

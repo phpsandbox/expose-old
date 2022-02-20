@@ -3,6 +3,8 @@
 namespace App\Server\Connections;
 
 use App\Contracts\ConnectionManager as ConnectionManagerContract;
+use App\Contracts\LoggerRepository;
+use App\Contracts\StatisticsCollector;
 use App\Contracts\SubdomainGenerator;
 use App\Http\QueryParameters;
 use App\Server\Exceptions\NoFreePortAvailable;
@@ -24,10 +26,18 @@ class ConnectionManager implements ConnectionManagerContract
     /** @var LoopInterface */
     protected $loop;
 
-    public function __construct(SubdomainGenerator $subdomainGenerator, LoopInterface $loop)
+    /** @var StatisticsCollector */
+    protected $statisticsCollector;
+
+    /** @var LoggerRepository */
+    protected $logger;
+
+    public function __construct(SubdomainGenerator $subdomainGenerator, StatisticsCollector $statisticsCollector, LoggerRepository $logger, LoopInterface $loop)
     {
         $this->subdomainGenerator = $subdomainGenerator;
         $this->loop = $loop;
+        $this->statisticsCollector = $statisticsCollector;
+        $this->logger = $logger;
     }
 
     public function limitConnectionLength(ControlConnection $connection, int $maximumConnectionLength)
@@ -43,7 +53,7 @@ class ConnectionManager implements ConnectionManagerContract
         });
     }
 
-    public function storeConnection(string $host, ?string $subdomain, ConnectionInterface $connection): ControlConnection
+    public function storeConnection(string $host, ?string $subdomain, ?string $serverHost, ConnectionInterface $connection): ControlConnection
     {
         $clientId = (string) uniqid();
 
@@ -54,12 +64,28 @@ class ConnectionManager implements ConnectionManagerContract
             $host,
             $subdomain ?? $this->subdomainGenerator->generateSubdomain(),
             $clientId,
+            $serverHost,
             $this->getAuthTokenFromConnection($connection)
         );
 
         $this->connections[] = $storedConnection;
 
+        $this->statisticsCollector->siteShared($this->getAuthTokenFromConnection($connection));
+
+        $this->logger->logSubdomain($storedConnection->authToken, $storedConnection->subdomain);
+
+        $this->performConnectionCallback($storedConnection);
+
         return $storedConnection;
+    }
+
+    protected function performConnectionCallback(ControlConnection $connection)
+    {
+        $connectionCallback = config('expose.admin.connection_callback');
+
+        if ($connectionCallback !== null && class_exists($connectionCallback)) {
+            app($connectionCallback)->handle($connection);
+        }
     }
 
     public function storeTcpConnection(int $port, ConnectionInterface $connection): ControlConnection
@@ -77,6 +103,8 @@ class ConnectionManager implements ConnectionManagerContract
         );
 
         $this->connections[] = $storedConnection;
+
+        $this->statisticsCollector->portShared($this->getAuthTokenFromConnection($connection));
 
         return $storedConnection;
     }
@@ -143,10 +171,10 @@ class ConnectionManager implements ConnectionManagerContract
         }
     }
 
-    public function findControlConnectionForSubdomain($subdomain): ?ControlConnection
+    public function findControlConnectionForSubdomainAndServerHost($subdomain, $serverHost): ?ControlConnection
     {
-        return collect($this->connections)->last(function ($connection) use ($subdomain) {
-            return $connection->subdomain == $subdomain;
+        return collect($this->connections)->last(function ($connection) use ($subdomain, $serverHost) {
+            return $connection->subdomain == $subdomain && $connection->serverHost === $serverHost;
         });
     }
 
@@ -155,6 +183,20 @@ class ConnectionManager implements ConnectionManagerContract
         return collect($this->connections)->last(function ($connection) use ($clientId) {
             return $connection->client_id == $clientId;
         });
+    }
+
+    public function findControlConnectionsForIp(string $ip): array
+    {
+        return collect($this->connections)->filter(function (ControlConnection $connection) use ($ip) {
+            return $connection->socket->remoteAddress == $ip;
+        })->toArray();
+    }
+
+    public function findControlConnectionsForAuthToken(string $token): array
+    {
+        return collect($this->connections)->filter(function (ControlConnection $connection) use ($token) {
+            return $connection->authToken === $token;
+        })->toArray();
     }
 
     public function getConnections(): array
