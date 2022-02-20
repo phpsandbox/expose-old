@@ -1,0 +1,43 @@
+name: Run tests
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  app-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup PHP
+        uses: shivammathur/setup-php@master
+        with:
+          php-version: 8.1
+          extension-csv: mbstring, bcmath
+      - uses: actions/checkout@v2
+      - name: Install Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist --ignore-platform-reqs
+      - name: Execute tests (Unit and Feature tests) via PHPUnit
+        run: vendor/bin/phpunit
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [app-tests]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: "Setup PHP"
+        uses: shivammathur/setup-php@master
+        with:
+          php-version: '8.1'
+          extension-csv: mbstring, bcmath
+      - uses: actions/checkout@v2
+      - name: Setup Deployer
+        uses: atymic/deployer-php-action@master
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Deploy to Prod
+        env:
+          DOT_ENV: ${{ secrets.DOT_ENV }}
+        run: dep deploy production --tag=${{ env.GITHUB_REF }} -vvv

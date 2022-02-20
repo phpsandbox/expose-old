@@ -1,0 +1,16 @@
+{
+  "name": "phpsandbox/expose",
+  "type": "library",
+  "license": "proprietary",
+  "description": "Addon for Expose to make it work for PHPSandbox in our own way.",
+  "require": {
+    "deployer/deployer": "^6.8",
+    "deployer/recipes": "^6.2"
+  },
+  "require-dev": {},
+  "autoload": {
+    "psr-4": {
+      "Components\\PHPSandbox\\": "src/"
+    }
+  }
+}
