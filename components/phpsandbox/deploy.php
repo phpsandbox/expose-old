@@ -6,9 +6,9 @@ namespace Deployer;
 require 'vendor/deployer/deployer/recipe/laravel.php';
 require 'contrib/rsync.php';
 
-define("SOURCE_ROOT", dirname(__DIR__, 3));
+define("SOURCE_ROOT", dirname(__DIR__, 2));
 
-//set('application', 'Expose');
+set('application', 'Expose');
 set('ssh_multiplexing', true); // Speed up deployment
 
 set('rsync_src', function () {
