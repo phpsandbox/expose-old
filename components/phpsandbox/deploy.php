@@ -8,6 +8,10 @@ require 'contrib/rsync.php';
 
 define("SOURCE_ROOT", dirname(__DIR__, 2));
 
+define('DEPLOY_DOMAINS', [
+    'ciroue.com' => 'ciroue.com',
+]);
+
 set('application', 'Expose');
 set('ssh_multiplexing', true); // Speed up deployment
 
@@ -74,12 +78,34 @@ task('deploy', [
     'deploy:cleanup',
 ]);
 
-$completeRelease = function (): void {
-    run('sudo supervisorctl restart all');
+$deployNginxFiles = function (): void {
+    foreach (DEPLOY_DOMAINS as $localDomain => $DOMAIN) {
+        $linkPath = "/etc/nginx/sites-enabled/$DOMAIN";
+        $filePath = "/etc/nginx/sites-available/$DOMAIN";
+        $command = "
+            sudo cp infrastructure/production/nginx/$localDomain.conf $filePath
+            if [ ! -f \"$linkPath\" ]; then
+                sudo ln -s $filePath $linkPath
+            fi
+        ";
 
-    within('{{release_path}}', function (): void {
+        run($command);
+    }
+};
+
+$reloadNginx = function (): void {
+    run('sudo nginx -t && sudo service nginx reload');
+};
+
+
+$completeRelease = function () use ($deployNginxFiles, $reloadNginx): void {
+    within('{{release_path}}', function () use ($reloadNginx, $deployNginxFiles): void {
         run("php expose --version");
+        $deployNginxFiles();
+        $reloadNginx();
     });
+
+    run('sudo supervisorctl restart all');
 };
 
 task('deploy:done:production', $completeRelease);
