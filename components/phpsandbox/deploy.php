@@ -52,7 +52,6 @@ task('deploy:secrets', function () {
 
 task('deploy', [
     'deploy:info',
-    'deploy:prepare',
     'deploy:lock',
     'deploy:release',
     'rsync', // Deploy code & built assets
