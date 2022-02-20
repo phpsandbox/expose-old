@@ -1,58 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Expose - {{ subdomain }}</title>
-
-    <script src="https://unpkg.com/tailwindcss-jit-cdn"></script>
-
-    <script type="tailwind-config">
-{
-    theme: {
-        extend: {
-            colors: {
-                'brand': {
-                    600: '#D4019C'
-                },
-                steel: {
-                    800: '#535765',
-                    900: '#171C2E'
-                }
-            },
-        }
-        }
-}
-    </script>
-
+    <title>PHPSandbox - {{ subdomain }}</title>
+    <link rel="icon" href="https://phpsandbox.io/assets/img/brand/phpsandbox.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;0,531;0,600;0,700;0,800;0,900;1,400;1,500;1,531;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
-<div
-    style="background-image: linear-gradient(to top, #ee12b4, #ee20a6, #ed2c99, #e9388d, #e54283, #e75585, #e96688, #ea768d, #f1919f, #f7abb2, #fcc5c7, #ffdede);"
 
-    class="bg-no-repeat w-full min-h-screen">
-    <div class="container px-4 md:px-8 mx-auto pt-4 flex flex-col">
-        <header class="pb-6 flex w-full justify-between items-center mt-8">
-            <a href="https://expose.beyondco.de">
-                <img src="https://expose.beyondco.de/images/expose/logo_wide.svg"
-                     class="w-48" alt="Expose"/>
+<div class="h-screen bg-white flex items-center justify-center font-sans text-gray-700" style="font-family: 'Jost', sans-serif">
+    <div class="font-medium items-center text-center flex flex-col justify-between h-full">
+        <div class="flex flex-col justify-center items-center">
+            <h1 style="font-size: 6rem;" class="text-gray-700 mt-64">Ooin!</h1>
+
+            {#            <p class="mb-6 font-semibold">It looks like the notebook "{{ subdomain }}" hasn't been started or doesn't exists.</p>#}
+
+            {#            <p class="mb-6 text-sm">#}
+            {#                Make sure the notebook exists and has been started then try again. <br/> If you're seeing this on your notebook page,#}
+            {#                reload the page to start the notebook. Otherwise, go <a href="https://phpsandbox.io/n/{{ subdomain }}" class="text-indigo-900 hover:underline">here</a> to start it.#}
+            {#            </p>#}
+
+            <a href="https://phpsandbox.io" class="p-3 bg-indigo-900 hover:bg-indigo-800 text-white rounded-md">
+                Go to PHPSandbox.
             </a>
-            <div class="text-steel-800">
-                <a class="flex justify-center items-center" href="https://beyondco.de/" target="_blank">
-                    <span class="mr-3">A product by</span>
-                    <img src="https://usewindy.com/img/bc_logo_full.svg" class="h-8" alt="Beyond Code">
-                </a>
-            </div>
-        </header>
-        <div class="text-steel-900 text-xl w-1/2 mx-auto pt-16">
-            <h1 class="text-6xl font-extrabold">Welcome to Expose!</h1>
-            <p class="px-4 py-2 bg-white bg-opacity-50 rounded mx-auto mt-8 text-lg">
-                You can create public URLs for your local applications through any firewall and VPN with <span class="font-medium">Expose</span>.
-                Receive webhooks, test local sites on mobile devices and share them with others.
-
-                <a href="https://expose.beyondco.de/docs" class="underline text-brand-600 font-medium">
-                    Learn more</a>
-            </p>
         </div>
+
+        <span class="mb-6">
+            Powered by  <a href="https://expose.dev" target="_blank" class="text-indigo-900 hover:underline underline">
+            Expose
+        </a>
+        </span>
     </div>
 </div>
 </body>
