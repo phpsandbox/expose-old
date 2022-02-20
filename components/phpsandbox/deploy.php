@@ -4,13 +4,13 @@ namespace Deployer;
 
 // Include the Laravel & rsync recipes
 require 'vendor/deployer/deployer/recipe/laravel.php';
-require 'vendor/deployer/recipes/recipe/rsync.php';
+//require 'vendor/deployer/recipes/recipe/rsync.php';
 
 set('application', 'Expose');
 set('ssh_multiplexing', true); // Speed up deployment
 
 set('rsync_src', function () {
-    return __DIR__; // If your project isn't in the root, you'll need to change this.
+    return dirname(__DIR__, 3); // If your project isn't in the root, you'll need to change this.
 });
 
 // Configuring the rsync exclusions.
@@ -27,10 +27,10 @@ add('rsync', [
 ]);
 
 host('ciroue.com') // Name of the server
-->hostname('100.25.14.85') // Hostname or IP address
-->stage('production') // Deployment stage (production, staging, etc)
-->user('ubuntu') // SSH user
-->set('deploy_path', '/var/www/expose');
+->setHostname('100.25.14.85') // Hostname or IP address
+->setRemoteUser('ubuntu') // SSH user
+//->stage('production') // Deployment stage (production, staging, etc)
+->setDeployPath('/var/www/expose');
 
 set('composer_options', '{{composer_action}} --verbose --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-suggest --ignore-platform-reqs');
 
@@ -73,5 +73,5 @@ $completeRelease = function (): void {
     });
 };
 
-task('deploy:done:production', $completeRelease)->onStage("production");
+task('deploy:done:production', $completeRelease);
 after('deploy', 'deploy:done:production');
