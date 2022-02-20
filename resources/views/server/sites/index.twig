@@ -29,7 +29,7 @@
                                 @{ site.host }
                             </td>
                             <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200 text-sm leading-5 text-gray-500">
-                                @{ site.subdomain }.{{ configuration.hostname()}}:{{ configuration.port() }}
+                                @{ site.subdomain }.{{ configuration.hostname()}}
                             </td>
                             <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200 text-sm leading-5 text-gray-500">
                                 @{ site.user?.name }
@@ -38,7 +38,7 @@
                                 @{ site.shared_at }
                             </td>
                             <td class="px-6 py-4 whitespace-no-wrap text-right border-b border-gray-200 text-sm leading-5 font-medium">
-                                <a :href="'{{ scheme|raw }}://'+site.subdomain+'.{{ configuration.hostname()}}:{{ configuration.port() }}'" target="_blank"
+                                <a :href="'{{ scheme|raw }}://'+site.subdomain+'.{{ configuration.hostname()}}'" target="_blank"
                                    class="text-indigo-600 hover:text-indigo-900">Visit</a>
                                 <a href="#"
                                    @click.prevent="disconnectSite(site.client_id)"
